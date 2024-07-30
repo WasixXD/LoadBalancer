@@ -1,64 +1,46 @@
+import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpHandler;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.net.InetSocketAddress;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import com.sun.net.httpserver.HttpExchange;
+import java.io.IOException;
 
 public class WebServer extends Thread {
-    private int port;
-    public ServerSocket socket;
-    private final ExecutorService clientHandlePool;
-    public int connectedClients;
-
+    private HttpServer server;
+    public int port;
     public WebServer(int _port) throws IOException {
         this.port = _port;
-        this.socket = new ServerSocket(this.port);
-        this.connectedClients = 0;
-        this.clientHandlePool = Executors.newFixedThreadPool(3);
-        System.out.println("- [!] Servidor criado em localhost: " + this.port);
+        this.server = HttpServer.create(new InetSocketAddress(this.port), 0);
+
+        this.server.createContext("/", new Handler(this.port));
+
+        this.server.setExecutor(null);
+
     }
 
-    public int getPort() {
-        return this.port;
-    }
-
-    public int getClients() {
-        return this.connectedClients;
+    public String getHost() {
+        return this.server.getAddress().getHostString();
     }
 
     public void start() {
-        while (true) {
-            try {
-                Socket client = this.socket.accept();
-                clientHandlePool.submit(() -> handle_client(client));
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+        this.server.start();
+    }
+    static class Handler implements HttpHandler {
+        private int port;
+        public Handler(int _port) {
+            this.port = _port;
+        }
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            System.out.println("Servidor: " + this.port + " - Recebeu algo");
+            String response = "Ola, esse e o servidor [" + this.port + "]\n";
+            exchange.sendResponseHeaders(200, response.length());
+            OutputStream os = exchange.getResponseBody();
+            os.write(response.getBytes());
+            os.close();
         }
     }
 
-    private void handle_client(Socket client) {
-        try (BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
-                PrintWriter out = new PrintWriter(client.getOutputStream(), true)) {
-            String inputLine;
-            while ((inputLine = in.readLine()) != null) {
-                // Processar dados do cliente
-                System.out.println("\t - [*] " + this.getPort() + ": " + inputLine);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            try {
-                client.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
+   
 }
