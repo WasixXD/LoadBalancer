@@ -2,4 +2,4 @@
 
 clear
 javac -d bin ./src/*.java 
-java -cp ./bin/ App
+java -cp ./bin/ LoadBalancer
