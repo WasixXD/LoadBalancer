@@ -13,7 +13,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.Arrays;
 import java.util.HashMap;
 
-
 public class LoadBalancer {
     private final byte n_servers = 3;
     private final short port = 8888;
@@ -23,7 +22,6 @@ public class LoadBalancer {
     private WebServer[] servers;
     private HashMap<Byte, AtomicInteger> alives;
     private Queue<Socket> clients;
-
 
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_RED = "\u001B[41m";
@@ -36,23 +34,20 @@ public class LoadBalancer {
         this.alives = new HashMap<Byte, AtomicInteger>();
     }
 
-
     public byte getLeastConnection() {
         int min = Integer.MAX_VALUE;
         byte i = 0;
 
-        for(Byte key : alives.keySet()) {
+        for (Byte key : alives.keySet()) {
             AtomicInteger value = alives.get(key);
-            if(value.get() < min) {
+            if (value.get() < min) {
                 min = value.get();
                 i = key;
             }
         }
         return i;
     }
-    
 
-   
     public void init() {
 
         while (true) {
@@ -64,26 +59,33 @@ public class LoadBalancer {
                 // Adiciono na fila
                 this.clients.add(client);
 
-                // Least Connection algorithm
-                byte server_idx = this.getLeastConnection();
-                WebServer finalServer = this.servers[server_idx];
-                AtomicInteger connCount = this.alives.get(server_idx);
+                byte server_idx;
+                WebServer finalServer;
+                AtomicInteger connCount;
 
+                // Least Connection algorithm
+
+                do {
+                    server_idx = this.getLeastConnection();
+                    finalServer = this.servers[server_idx];
+                    connCount = this.alives.get(server_idx);
+
+                } while (connCount.get() >= 3);
                 // Client é tratado
                 System.out.println("\t - [!] Um novo cliente se conectou");
                 System.out.println(ANSI_RED + "[@] - Clientes simultâneo: " + this.n_clients + ANSI_RESET);
                 new Thread(new ClientHandling(this.clients.poll(), this.n_clients, finalServer, connCount)).start();
             } catch (IOException e) {
                 e.printStackTrace();
-            } 
+            }
         }
     }
 
     public void startServers() throws IOException {
         short localports = 3000;
         for (short i = 0; i < this.n_servers; i++) {
-            this.servers[i] = new WebServer((short)(localports + i));
-            this.alives.put((byte)i, new AtomicInteger(0));
+            this.servers[i] = new WebServer((short) (localports + i));
+            this.alives.put((byte) i, new AtomicInteger(0));
             new Thread(this.servers[i]::start).start();
         }
     }
